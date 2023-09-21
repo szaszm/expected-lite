@@ -2123,6 +2123,33 @@ CASE( "issue-58" )
     EXPECT( !unexpected.has_value() );
 }
 
+CASE( "invoke" )
+{
+    struct A {
+      int x;
+      constexpr int get() const { return x; }
+      constexpr int get2(char) const { return x; }
+    };
+    static_assert( nonstd::expected_lite::detail::invoke( &A::x, A{21} ) == 21, "" );
+    EXPECT( nonstd::expected_lite::detail::invoke( &MoveOnly::x, MoveOnly(42) ) == 42 );
+    constexpr A lval{ 7 };
+    static_assert( nonstd::expected_lite::detail::invoke( &A::x, lval ) == 7, "" );
+    A mut_lval{ 12 };
+    std::reference_wrapper<A> ref{ mut_lval };
+    const std::reference_wrapper<const A> cref{ lval };
+    EXPECT( nonstd::expected_lite::detail::invoke( &A::x, ref ) == 12 );
+    EXPECT( nonstd::expected_lite::detail::invoke( &A::x, cref ) == 7 );
+    static_assert(nonstd::expected_lite::detail::invoke(&A::x, &lval) == 7, "");
+    static_assert(nonstd::expected_lite::detail::invoke(&A::get, &lval) == 7, "");
+    static_assert(nonstd::expected_lite::detail::invoke(&A::get, A{77}) == 77, "");
+    EXPECT( nonstd::expected_lite::detail::invoke(&A::get, ref) == 12 );
+    EXPECT( nonstd::expected_lite::detail::invoke(&A::get, cref) == 7 );
+    static_assert(nonstd::expected_lite::detail::invoke(&A::get2, &lval, 'a') == 7, "");
+    static_assert(nonstd::expected_lite::detail::invoke(&A::get2, A{77}, 'a') == 77, "");
+    EXPECT( nonstd::expected_lite::detail::invoke(&A::get2, ref, 'a') == 12 );
+    EXPECT( nonstd::expected_lite::detail::invoke(&A::get2, cref, 'a') == 7 );
+}
+
 // -----------------------------------------------------------------------
 //  using as optional
 

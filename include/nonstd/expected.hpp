@@ -999,6 +999,127 @@ public:
     }
 };
 
+// C++11 invoke implementation
+template<typename>
+struct is_reference_wrapper : std::false_type {};
+template<typename T>
+struct is_reference_wrapper<std::reference_wrapper<T>> : std::true_type {};
+
+template<typename ReturnT, typename ClassT, typename ObjectT, typename... Args
+    nsel_REQUIRES_T(
+        std::is_same<ClassT, typename std20::remove_cvref<ObjectT>::type>::value
+        || std::is_base_of<ClassT, typename std20::remove_cvref<ObjectT>::type>::value
+    )
+>
+nsel_constexpr auto invoke_member_function_impl(ReturnT (ClassT::*memfnptr), ObjectT&& obj, Args&&... args)
+        noexcept(noexcept((std::forward<ObjectT>(obj).*memfnptr)(std::forward<Args>(args)...)))
+        -> decltype((std::forward<ObjectT>(obj).*memfnptr)(std::forward<Args>(args)...))
+{
+      return (std::forward<ObjectT>(obj).*memfnptr)(std::forward<Args>(args)...);
+}
+
+template<typename ReturnT, typename ClassT, typename ObjectT, typename... Args
+    nsel_REQUIRES_T(
+        is_reference_wrapper<typename std20::remove_cvref<ObjectT>::type>::value
+    )
+>
+nsel_constexpr auto invoke_member_function_impl(ReturnT (ClassT::*memfnptr), ObjectT&& obj, Args&&... args)
+        noexcept(noexcept((obj.get().*memfnptr)(std::forward<Args>(args)...)))
+        -> decltype((obj.get().*memfnptr)(std::forward<Args>(args)...))
+{
+    return (obj.get().*memfnptr)(std::forward<Args>(args)...);
+}
+
+template<typename ReturnT, typename ClassT, typename ObjectT, typename... Args
+    nsel_REQUIRES_T(
+        !std::is_same<ClassT, typename std20::remove_cvref<ObjectT>::type>::value
+        && !std::is_base_of<ClassT, typename std20::remove_cvref<ObjectT>::type>::value
+        && !is_reference_wrapper<typename std20::remove_cvref<ObjectT>::type>::value
+    )
+>
+nsel_constexpr auto invoke_member_function_impl(ReturnT (ClassT::*memfnptr), ObjectT&& obj, Args&&... args)
+        noexcept(noexcept(((*std::forward<ObjectT>(obj)).*memfnptr)(std::forward<Args>(args)...)))
+        -> decltype(((*std::forward<ObjectT>(obj)).*memfnptr)(std::forward<Args>(args)...))
+{
+    return ((*std::forward<ObjectT>(obj)).*memfnptr)(std::forward<Args>(args)...);
+}
+
+template<typename MemberT, typename ClassT, typename ObjectT
+    nsel_REQUIRES_T(
+        std::is_same<ClassT, typename std20::remove_cvref<ObjectT>::type>::value
+        || std::is_base_of<ClassT, typename std20::remove_cvref<ObjectT>::type>::value
+    )
+>
+nsel_constexpr auto invoke_member_object_impl(MemberT ClassT::*memobjptr, ObjectT&& obj)
+        noexcept(noexcept(std::forward<ObjectT>(obj).*memobjptr))
+        -> decltype(std::forward<ObjectT>(obj).*memobjptr)
+{
+    return std::forward<ObjectT>(obj).*memobjptr;
+}
+
+template<typename MemberT, typename ClassT, typename ObjectT
+    nsel_REQUIRES_T(
+        is_reference_wrapper<typename std20::remove_cvref<ObjectT>::type>::value
+    )
+>
+nsel_constexpr auto invoke_member_object_impl(MemberT ClassT::*memobjptr, ObjectT&& obj)
+        noexcept(noexcept(obj.get().*memobjptr))
+        -> decltype(obj.get().*memobjptr)
+{
+    return obj.get().*memobjptr;
+}
+
+template<typename MemberT, typename ClassT, typename ObjectT
+    nsel_REQUIRES_T(
+        !std::is_same<ClassT, typename std20::remove_cvref<ObjectT>::type>::value
+        && !std::is_base_of<ClassT, typename std20::remove_cvref<ObjectT>::type>::value
+        && !is_reference_wrapper<typename std20::remove_cvref<ObjectT>::type>::value
+    )
+>
+nsel_constexpr auto invoke_member_object_impl(MemberT ClassT::*memobjptr, ObjectT&& obj)
+        noexcept(noexcept((*std::forward<ObjectT>(obj)).*memobjptr))
+        -> decltype((*std::forward<ObjectT>(obj)).*memobjptr)
+{
+    return (*std::forward<ObjectT>(obj)).*memobjptr;
+}
+
+template<typename F, typename... Args
+    nsel_REQUIRES_T(
+        std::is_member_function_pointer<typename std20::remove_cvref<F>::type>::value
+    )
+>
+nsel_constexpr auto invoke(F&& f, Args&&... args)
+        noexcept(noexcept(invoke_member_function_impl(std::forward<F>(f), std::forward<Args>(args)...)))
+        -> decltype(invoke_member_function_impl(std::forward<F>(f), std::forward<Args>(args)...))
+{
+    return invoke_member_function_impl(std::forward<F>(f), std::forward<Args>(args)...);
+}
+
+template<typename F, typename... Args
+    nsel_REQUIRES_T(
+        std::is_member_object_pointer<typename std20::remove_cvref<F>::type>::value
+    )
+>
+nsel_constexpr auto invoke(F&& f, Args&&... args)
+        noexcept(noexcept(invoke_member_object_impl(std::forward<F>(f), std::forward<Args>(args)...)))
+        -> decltype(invoke_member_object_impl(std::forward<F>(f), std::forward<Args>(args)...))
+{
+    return invoke_member_object_impl(std::forward<F>(f), std::forward<Args>(args)...);
+}
+
+template<typename F, typename... Args
+    nsel_REQUIRES_T(
+        !std::is_member_function_pointer<typename std20::remove_cvref<F>::type>::value
+        && !std::is_member_object_pointer<typename std20::remove_cvref<F>::type>::value
+    )
+>
+nsel_constexpr auto invoke(F&& f, Args&&... args)
+        noexcept(noexcept(std::forward<F>(f)(std::forward<Args>(args)...)))
+        -> decltype(std::forward<F>(f)(std::forward<Args>(args)...))
+{
+    return std::forward<F>(f)(std::forward<Args>(args)...);
+}
+
 } // namespace detail
 
 /// x.x.5 Unexpected object type; unexpected_type; C++17 and later can also use aliased type unexpected.
