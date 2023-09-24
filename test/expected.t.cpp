@@ -1248,8 +1248,11 @@ CASE( "expected: Allows to map value with and_then" )
     {
         expected<int, int> e{ 11 };
         const expected<int, int> ce{ 21 };
+        expected<int, int> ue{ unexpect, 42 };
         EXPECT( e.and_then( mul2 ).value() == 22 );
         EXPECT( ce.and_then( mul2 ).value() == 42 );
+        EXPECT( !ue.and_then( mul2 ).has_value());
+        EXPECT( ue.and_then( mul2 ).error() == 42 );
         EXPECT( !e.and_then( to_unexpect42 ).has_value());
         EXPECT( e.and_then( to_unexpect42 ).error() == 42 );
         EXPECT( ce.and_then( to_unexpect42 ).error() == 42 );
@@ -1266,6 +1269,73 @@ CASE( "expected: Allows to map value with and_then" )
     EXPECT( (expected<int, int>(3)).and_then( map_to_void ).has_value() );
     EXPECT( !(expected<int, int>(3)).and_then( map_to_void_unexpect42 ).has_value() );
     EXPECT( (expected<int, int>(3)).and_then( map_to_void_unexpect42 ).error() == 42 );
+}
+
+CASE( "expected: Handling unexpected with or_else" )
+{
+    const auto to_unexpect43 = []( int ) -> expected<int, int> { return make_unexpected( 43 ); };
+
+    {
+        expected<int, int> e{ 11 };
+        const expected<int, int> ce{ 21 };
+        expected<int, int> ue{ unexpect, 42 };
+        EXPECT( e.or_else( to_unexpect43 ).has_value());
+        EXPECT( e.or_else( to_unexpect43 ).value() == 11 );
+        EXPECT( ce.or_else( to_unexpect43 ).value() == 21 );
+        EXPECT( !ue.or_else( to_unexpect43 ).has_value());
+        EXPECT( ue.or_else( to_unexpect43 ).error() == 43 );
+    }
+
+    const auto fallback_throw = []( int ) -> expected<int, int> { throw std::runtime_error( "or_else" ); };
+    EXPECT_THROWS_AS( (expected<int, int>{ unexpect, 42 }).or_else( fallback_throw ), std::runtime_error );
+
+    const auto moveonly_fallback_to_66 = [](int) -> expected<MoveOnly, int> { return MoveOnly{ 66 }; };
+    EXPECT( (expected<MoveOnly, int>{ MoveOnly{ 33 } }).or_else( moveonly_fallback_to_66 ).value() == 33 );
+    EXPECT( (expected<MoveOnly, int>{ unexpect, 15 }).or_else(moveonly_fallback_to_66).value() == 66 );
+}
+
+CASE( "expected: transform values" )
+{
+    const auto mul2 = []( int n ) -> int { return n * 2; };
+
+    {
+        expected<int, int> e{ 11 };
+        const expected<int, int> ce{ 21 };
+        expected<int, int> ue{ unexpect, 42 };
+        EXPECT( e.transform( mul2 ).value() == 22 );
+        EXPECT( ce.transform( mul2 ).value() == 42 );
+        EXPECT( !ue.transform( mul2 ).has_value());
+        EXPECT( ue.transform( mul2 ).error() == 42 );
+    }
+
+    const auto moveonly_x_mul2 = [](MoveOnly val) -> int { return val.x * 2; };
+    EXPECT( (expected<MoveOnly, int>{ MoveOnly{ 33 } }).transform( moveonly_x_mul2 ).has_value() );
+    EXPECT( (expected<MoveOnly, int>{ MoveOnly{ 33 } }).transform( moveonly_x_mul2 ).value() == 66 );
+    EXPECT( !(expected<MoveOnly, int>{ unexpect, 15 }).transform( [](MoveOnly&&) -> int { return 42; } ).has_value() );
+    EXPECT( (expected<MoveOnly, int>{ unexpect, 15 }).transform( [](MoveOnly&&) -> int { return 42; } ).error() == 15 );
+
+    const auto map_to_void = [](int) -> void { };
+    static_assert( std::is_same< expected<void, int>, decltype( expected<int, int>( 3 ).transform( map_to_void ) ) >::value,
+        "transform to void results in expected<void>" );
+    EXPECT( (expected<int, int>(3)).transform( map_to_void ).has_value() );
+    static_assert( std::is_same< decltype( (expected<int, int>(3)).transform( map_to_void ).value() ), void >::value,
+        "transform to void results in void value" );
+}
+
+CASE( "expected: Mapping errors with transform_error" )
+{
+    const auto to_43 = []( int ) -> int { return 43; };
+
+    {
+        expected<int, int> e{ 11 };
+        const expected<int, int> ce{ 21 };
+        expected<int, int> ue{ unexpect, 42 };
+        EXPECT( e.transform_error( to_43 ).has_value());
+        EXPECT( e.transform_error( to_43 ).value() == 11 );
+        EXPECT( ce.transform_error( to_43 ).value() == 21 );
+        EXPECT( !ue.transform_error( to_43 ).has_value());
+        EXPECT( ue.transform_error( to_43 ).error() == 43 );
+    }
 }
 
 // -----------------------------------------------------------------------
@@ -1563,6 +1633,99 @@ CASE( "expected<void>: Throws bad_expected_access on value access when disengage
     EXPECT_THROWS_AS( std::move( e).value(), bad_expected_access<int> );
     EXPECT_THROWS(    std::move(ec).value() );
     EXPECT_THROWS_AS( std::move(ec).value(), bad_expected_access<int> );
+}
+
+CASE( "expected<void>: calling argless functions with and_then" )
+{
+    const auto ret22 = []() -> expected<int, int> { return 22; };
+    const auto unexpect32 = []() -> expected<int, int> { return make_unexpected( 32 ); };
+
+    {
+        expected<void, int> e;
+        const expected<void, int> ce;
+        expected<void, int> ue{ unexpect, 42 };
+        EXPECT( e.has_value() );
+        EXPECT( ce.has_value() );
+        EXPECT( e.and_then( ret22 ).value() == 22 );
+        EXPECT( ce.and_then( ret22 ).value() == 22 );
+        EXPECT( !ue.and_then( ret22 ).has_value());
+        EXPECT( ue.and_then( ret22 ).error() == 42 );
+        EXPECT( !e.and_then( unexpect32 ).has_value());
+        EXPECT( e.and_then( unexpect32 ).error() == 32 );
+        EXPECT( ce.and_then( unexpect32 ).error() == 32 );
+    }
+
+    {
+        bool called = false;
+        expected<void, int> e;
+        e.and_then( [&called]() -> expected<void, int> {
+            called = true;
+            return {};
+        } );
+        EXPECT( called );
+    }
+
+    {
+        bool called = false;
+        expected<void, int>{}.and_then( [&called]() -> expected<void, int> {
+            called = true;
+            return {};
+        } );
+        EXPECT( called );
+    }
+
+    {
+        bool called = false;
+        expected<void, int>{ unexpect, 42 }.and_then( [&called]() -> expected<void, int> {
+            called = true;
+            return {};
+        } );
+        EXPECT( !called );
+    }
+
+    const bool map_to_unexpect_success = !expected<void, int>{}.and_then( []() -> expected<void, int> { return make_unexpected( 42 ); } ).has_value();
+    EXPECT( map_to_unexpect_success );
+}
+
+CASE( "expected<void>: or_else unexpected handling works" )
+{
+    const auto make_valid = [](int) -> expected<void, int> { return {}; };
+    const auto unexpect32 = [](int) -> expected<void, int> { return make_unexpected( 32 ); };
+
+    {
+        expected<void, int> e;
+        const expected<void, int> ce;
+        expected<void, int> ue{ unexpect, 42 };
+        EXPECT( e.has_value() );
+        EXPECT( ce.has_value() );
+        EXPECT( e.or_else( unexpect32 ).has_value());
+        static_assert( std::is_same< decltype( e.or_else( unexpect32 ).value() ), void >::value,
+            "or_else mapping to void results in void value" );
+        EXPECT( ce.or_else( unexpect32 ).has_value());
+        EXPECT( !ue.or_else( unexpect32 ).has_value());
+        EXPECT( ue.or_else( make_valid ).has_value() );
+        static_assert( std::is_same< decltype( ue.or_else( make_valid ).value() ), void >::value,
+            "or_else mapping to void results in void value" );
+        EXPECT( ue.or_else( unexpect32 ).error() == 32 );
+    }
+}
+
+CASE( "expected<void>: transform_error maps unexpected values" )
+{
+    const auto mul2 = []( int v ) -> int { return v * 2; };
+    enum class my_error { einval };
+    const auto map_to_my_error = [](int) { return my_error::einval; };
+
+    {
+        expected<void, int> e;
+        const expected<void, int> ce;
+        expected<void, int> ue{ unexpect, 42 };
+        EXPECT( e.transform_error( mul2 ).has_value());
+        EXPECT( ce.transform_error( mul2 ).has_value());
+        EXPECT( !ue.transform_error( mul2 ).has_value());
+        EXPECT( ue.transform_error( mul2 ).error() == 84 );
+        EXPECT( ue.transform_error( map_to_my_error ).error() == my_error::einval );
+    }
 }
 
 // [expected<> unwrap()]

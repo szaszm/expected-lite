@@ -2136,8 +2136,8 @@ public:
     nsel_constexpr14 detail::invoke_result_nocvref_t< F, error_type & > or_else( F&& f ) &
     {
         return has_value()
-            ? expected( value() )
-            : std::forward<F>( f )( error() );
+            ? detail::invoke_result_nocvref_t< F, error_type & >( value() )
+            : detail::invoke_result_nocvref_t< F, error_type & >( std::forward<F>( f )( error() ) );
     }
 
     template<typename F
@@ -2150,8 +2150,8 @@ public:
     nsel_constexpr detail::invoke_result_nocvref_t< F, const error_type & > or_else( F&& f ) const &
     {
         return has_value()
-            ? expected(value())
-            : std::forward<F>( f )( error() );
+            ? detail::invoke_result_nocvref_t< F, const error_type & >( value() )
+            : detail::invoke_result_nocvref_t< F, const error_type & >( std::forward<F>( f )( error() ) );
     }
 
 #if !nsel_COMPILER_GNUC_VERSION || nsel_COMPILER_GNUC_VERSION >= 490
@@ -2165,8 +2165,8 @@ public:
     nsel_constexpr14 detail::invoke_result_nocvref_t< F, error_type && > or_else( F&& f ) &&
     {
         return has_value()
-            ? expected( std::move( value() ) )
-            : std::forward<F>( f )( std::move( error() ) );
+            ? detail::invoke_result_nocvref_t< F, error_type && >( std::move( value() ) )
+            : detail::invoke_result_nocvref_t< F, error_type && >( std::forward<F>( f )( std::move( error() ) ) );
     }
 
     template<typename F
@@ -2179,8 +2179,8 @@ public:
     nsel_constexpr detail::invoke_result_nocvref_t< F, const error_type && > or_else( F&& f ) const &&
     {
         return has_value()
-            ? expected( std::move( value() ) )
-            : std::forward< F >( f )( std::move( error() ) );
+            ? detail::invoke_result_nocvref_t< F, const error_type && >( std::move( value() ) )
+            : detail::invoke_result_nocvref_t< F, const error_type && >( std::forward<F>( f )( std::move( error() ) ) );
     }
 #endif
 
@@ -2600,8 +2600,8 @@ public:
     nsel_constexpr14 detail::invoke_result_nocvref_t< F > and_then( F && f ) &
     {
         return has_value()
-            ? std::forward<F>(f)()
-            : expected(unexpect, error());
+            ? detail::invoke_result_nocvref_t< F >( std::forward< F >( f )() )
+            : detail::invoke_result_nocvref_t< F >( unexpect, error() );
     }
 
     template<typename F
@@ -2611,11 +2611,11 @@ public:
             && std::is_constructible< error_type, const error_type & >::value
         )
     >
-    nsel_constexpr detail::invoke_result_nocvref_t< F > and_then( F && f) const &
+    nsel_constexpr detail::invoke_result_nocvref_t< F > and_then( F && f ) const &
     {
         return has_value()
-            ? std::forward<F>(f)()
-            : expected(unexpect, error());
+            ? detail::invoke_result_nocvref_t< F >( std::forward< F >( f )() )
+            : detail::invoke_result_nocvref_t< F >( unexpect, error() );
     }
 
 #if !nsel_COMPILER_GNUC_VERSION || nsel_COMPILER_GNUC_VERSION >= 490
@@ -2629,8 +2629,8 @@ public:
     nsel_constexpr14 detail::invoke_result_nocvref_t< F > and_then( F && f) &&
     {
         return has_value()
-            ? std::forward<F>(f)()
-            : expected(unexpect, std::move(error()));
+            ? detail::invoke_result_nocvref_t< F >( std::forward< F >( f )() )
+            : detail::invoke_result_nocvref_t< F >( unexpect, std::move( error() ) );
     }
 
     template<typename F
@@ -2643,8 +2643,8 @@ public:
     nsel_constexpr detail::invoke_result_nocvref_t< F > and_then( F && f) const &&
     {
         return has_value()
-            ? std::forward<F>(f)()
-            : expected(unexpect, std::move(error()));
+            ? detail::invoke_result_nocvref_t< F >( std::forward< F >( f )() )
+            : detail::invoke_result_nocvref_t< F >( unexpect, std::move( error() ) );
     }
 #endif
 
@@ -2657,8 +2657,8 @@ public:
     nsel_constexpr14 detail::invoke_result_nocvref_t< F, error_type & > or_else(F&& f) &
     {
         return has_value()
-            ? expected()
-            : std::forward<F>(f)(error());
+            ? detail::invoke_result_nocvref_t< F, error_type & >()
+            : detail::invoke_result_nocvref_t< F, error_type & >( std::forward< F >( f )( error() ) );
     }
 
     template<typename F
@@ -2670,8 +2670,8 @@ public:
     nsel_constexpr detail::invoke_result_nocvref_t< F, const error_type & > or_else(F&& f) const &
     {
         return has_value()
-            ? expected()
-            : std::forward<F>(f)(error());
+            ? detail::invoke_result_nocvref_t< F, const error_type & >()
+            : detail::invoke_result_nocvref_t< F, const error_type & >( std::forward< F >( f )( error() ) );
     }
 
 #if !nsel_COMPILER_GNUC_VERSION || nsel_COMPILER_GNUC_VERSION >= 490
@@ -2684,8 +2684,8 @@ public:
     nsel_constexpr14 detail::invoke_result_nocvref_t< F, error_type && > or_else(F&& f) &&
     {
         return has_value()
-            ? expected()
-            : std::forward<F>(f)(std::move(error()));
+            ? detail::invoke_result_nocvref_t< F, error_type && >()
+            : detail::invoke_result_nocvref_t< F, error_type && >( std::forward< F >( f )( std::move( error() ) ) );
     }
 
     template<typename F
@@ -2697,8 +2697,8 @@ public:
     nsel_constexpr detail::invoke_result_nocvref_t< F, const error_type && > or_else(F&& f) const &&
     {
         return has_value()
-            ? expected()
-            : std::forward<F>(f)(std::move(error()));
+            ? detail::invoke_result_nocvref_t< F, const error_type && >()
+            : detail::invoke_result_nocvref_t< F, const error_type && >( std::forward< F >( f )( std::move( error() ) ) );
     }
 #endif
 
