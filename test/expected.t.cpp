@@ -1240,6 +1240,34 @@ CASE( "expected: Throws bad_expected_access on value access when disengaged" )
     EXPECT_THROWS_AS( std::move(ec).value(), bad_expected_access<int> );
 }
 
+CASE( "expected: Allows to map value with and_then" )
+{
+    const auto mul2 = []( int n ) -> expected<int, int> { return n * 2; };
+    const auto to_unexpect42 = []( int ) -> expected<int, int> { return make_unexpected( 42 ); };
+
+    {
+        expected<int, int> e{ 11 };
+        const expected<int, int> ce{ 21 };
+        EXPECT( e.and_then( mul2 ).value() == 22 );
+        EXPECT( ce.and_then( mul2 ).value() == 42 );
+        EXPECT( !e.and_then( to_unexpect42 ).has_value());
+        EXPECT( e.and_then( to_unexpect42 ).error() == 42 );
+        EXPECT( ce.and_then( to_unexpect42 ).error() == 42 );
+    }
+
+    const auto moveonly_x_mul2 = [](MoveOnly val) -> expected<int, int> { return val.x * 2; };
+    EXPECT( (expected<MoveOnly, int>{ MoveOnly{ 33 } }).and_then( moveonly_x_mul2 ).value() == 66 );
+    EXPECT( (expected<MoveOnly, int>{ MoveOnly{ 15 } }).and_then( [](MoveOnly&&) -> expected<MoveOnly, int> { return make_unexpected( 42 ); } ).error() == 42 );
+
+    const auto map_to_void = [](int) -> expected<void, int> { return {}; };
+    const auto map_to_void_unexpect42 = [](int) -> expected<void, int> { return make_unexpected( 42 ); };
+    static_assert( std::is_same< expected<void, int>, decltype( expected<int, int>( 3 ).and_then( map_to_void ) ) >::value,
+        "and_then mapping to void results in expected<void>");
+    EXPECT( (expected<int, int>(3)).and_then( map_to_void ).has_value() );
+    EXPECT( !(expected<int, int>(3)).and_then( map_to_void_unexpect42 ).has_value() );
+    EXPECT( (expected<int, int>(3)).and_then( map_to_void_unexpect42 ).error() == 42 );
+}
+
 // -----------------------------------------------------------------------
 // expected<void> specialization
 
