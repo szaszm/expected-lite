@@ -1517,6 +1517,20 @@ struct error_traits< std::error_code >
 
 #endif // nsel_CONFIG_NO_EXCEPTIONS
 
+namespace detail {
+
+template<typename T>
+struct valid_unexpected_type : std::integral_constant<bool,
+    std::is_same<T, typename std20::remove_cvref<T>::type>::value
+    && std::is_object<T>::value
+    && !std::is_array<T>::value
+> {};
+
+template<typename T>
+struct valid_unexpected_type<unexpected_type<T>> : std::false_type {};
+
+} // namespace detail
+
 } // namespace expected_lite
 
 // provide nonstd::unexpected_type:
@@ -2263,6 +2277,58 @@ public:
             ? ( std::forward< F >( f )( std::move(**this) ), expected< void, error_type >())
             : make_unexpected( std::move( error() ) );
     }
+
+    template<typename F
+        nsel_REQUIRES_T(
+            detail::valid_unexpected_type< detail::invoke_result_nocvref_t< F, error_type & > >::value
+            && std::is_constructible< value_type, value_type & >::value
+        )
+    >
+    nsel_constexpr14 expected< value_type, detail::invoke_result_nocvref_t< F, error_type & > > transform_error( F && f ) &
+    {
+        return has_value()
+            ? expected< value_type, detail::invoke_result_nocvref_t< F, error_type & > >( in_place, **this )
+            : make_unexpected( std::forward< F >( f )( error() ) );
+    }
+
+    template<typename F
+        nsel_REQUIRES_T(
+            detail::valid_unexpected_type< detail::invoke_result_nocvref_t< F, const error_type & > >::value
+            && std::is_constructible< value_type, const value_type & >::value
+        )
+    >
+    nsel_constexpr expected< value_type, detail::invoke_result_nocvref_t< F, const error_type & > > transform_error( F && f ) const &
+    {
+        return has_value()
+            ? expected< value_type, detail::invoke_result_nocvref_t< F, const error_type & > >( in_place, **this )
+            : make_unexpected( std::forward< F >( f )( error() ) );
+    }
+
+    template<typename F
+        nsel_REQUIRES_T(
+            detail::valid_unexpected_type< detail::invoke_result_nocvref_t< F, error_type && > >::value
+            && std::is_constructible< value_type, value_type && >::value
+        )
+    >
+    nsel_constexpr14 expected< value_type, detail::invoke_result_nocvref_t< F, error_type && > > transform_error( F && f ) &&
+    {
+        return has_value()
+            ? expected< value_type, detail::invoke_result_nocvref_t< F, error_type && > >( in_place, std::move(**this) )
+            : make_unexpected( std::forward< F >( f )( std::move(error()) ) );
+    }
+
+    template<typename F
+        nsel_REQUIRES_T(
+            detail::valid_unexpected_type< detail::invoke_result_nocvref_t< F, const error_type && > >::value
+            && std::is_constructible< value_type, const value_type && >::value
+        )
+    >
+    nsel_constexpr expected< value_type, detail::invoke_result_nocvref_t< F, const error_type && > > transform_error( F && f ) const &&
+    {
+        return has_value()
+            ? expected< value_type, detail::invoke_result_nocvref_t< F, const error_type && > >( in_place, std::move(**this) )
+            : make_unexpected( std::forward< F >( f )( std::move(error()) ) );
+    }
     // unwrap()
 
 //  template <class U, class E>
@@ -2707,6 +2773,54 @@ public:
             : make_unexpected(error());
     }
 
+
+    template<typename F
+        nsel_REQUIRES_T(
+            detail::valid_unexpected_type< detail::invoke_result_nocvref_t< F, error_type & > >::value
+        )
+    >
+    nsel_constexpr14 expected< void, detail::invoke_result_nocvref_t< F, error_type & > > transform_error( F && f ) &
+    {
+        return has_value()
+            ? expected< void, detail::invoke_result_nocvref_t< F, error_type & > >()
+            : make_unexpected( std::forward< F >( f )( error() ) );
+    }
+
+    template<typename F
+        nsel_REQUIRES_T(
+            detail::valid_unexpected_type< detail::invoke_result_nocvref_t< F, const error_type & > >::value
+        )
+    >
+    nsel_constexpr expected< void, detail::invoke_result_nocvref_t< F, const error_type & > > transform_error( F && f ) const &
+    {
+        return has_value()
+            ? expected< void, detail::invoke_result_nocvref_t< F, const error_type & > >()
+            : make_unexpected( std::forward< F >( f )( error() ) );
+    }
+
+    template<typename F
+        nsel_REQUIRES_T(
+            detail::valid_unexpected_type< detail::invoke_result_nocvref_t< F, error_type && > >::value
+        )
+    >
+    nsel_constexpr14 expected< void, detail::invoke_result_nocvref_t< F, error_type && > > transform_error( F && f ) &&
+    {
+        return has_value()
+            ? expected< void, detail::invoke_result_nocvref_t< F, error_type && > >()
+            : make_unexpected( std::forward< F >( f )( std::move(error()) ) );
+    }
+
+    template<typename F
+        nsel_REQUIRES_T(
+            detail::valid_unexpected_type< detail::invoke_result_nocvref_t< F, const error_type && > >::value
+        )
+    >
+    nsel_constexpr expected< void, detail::invoke_result_nocvref_t< F, const error_type && > > transform_error( F && f ) const &&
+    {
+        return has_value()
+            ? expected< void, detail::invoke_result_nocvref_t< F, const error_type && > >()
+            : make_unexpected( std::forward< F >( f )( std::move(error()) ) );
+    }
 
 //  template constexpr 'see below' unwrap() const&;
 //
