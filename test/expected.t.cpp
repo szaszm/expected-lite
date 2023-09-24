@@ -1308,7 +1308,10 @@ CASE( "expected: transform values" )
         EXPECT( ue.transform( mul2 ).error() == 42 );
     }
 
+    const auto moveonly_map_to_x = &MoveOnly::x;
     const auto moveonly_x_mul2 = [](MoveOnly val) -> int { return val.x * 2; };
+    EXPECT( (expected<MoveOnly, int>{ MoveOnly{ 33 } }).transform( moveonly_map_to_x ).value() == 33 );
+    EXPECT( (expected<MoveOnly, int>{ MoveOnly{ 33 } }).transform( moveonly_map_to_x ).transform( mul2 ).value() == 66 );
     EXPECT( (expected<MoveOnly, int>{ MoveOnly{ 33 } }).transform( moveonly_x_mul2 ).has_value() );
     EXPECT( (expected<MoveOnly, int>{ MoveOnly{ 33 } }).transform( moveonly_x_mul2 ).value() == 66 );
     EXPECT( !(expected<MoveOnly, int>{ unexpect, 15 }).transform( [](MoveOnly&&) -> int { return 42; } ).has_value() );
